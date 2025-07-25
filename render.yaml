@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: x-trend-api
+    runtime: python
+    buildCommand: ""
+    startCommand: gunicorn app:app
+    autoDeploy: true
+    region: oregon  # or any preferred region
