@@ -14,7 +14,10 @@ PASSWORD = 'Aaryan@2007'
 client = Client('en-US')
 COOKIES_PATH = 'cookies.json'
 
-async def login_with_credentials():
+async def try_fetch_trends():
+    return await client.get_trends('trending')
+
+async def full_login():
     await client.login(
         auth_info_1=USERNAME,
         auth_info_2=EMAIL,
@@ -26,10 +29,13 @@ def ensure_logged_in():
     try:
         if os.path.exists(COOKIES_PATH):
             client.load_cookies(COOKIES_PATH)
-        if not client.is_logged_in:
-            asyncio.run(login_with_credentials())
+            # Test login by attempting to fetch trends
+            asyncio.run(try_fetch_trends())
+        else:
+            raise Exception("No cookies found")
     except Exception as e:
-        raise Exception(f"Login failed: {str(e)}")
+        print(f"Cookie login failed, trying full login: {str(e)}")
+        asyncio.run(full_login())
 
 @app.route('/trends', methods=['GET'])
 def get_trends():
