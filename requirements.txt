@@ -3,3 +3,4 @@ gunicorn
 twikit
 requests
 requests-oauthlib
+nest_asyncio
