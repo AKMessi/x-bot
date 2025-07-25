@@ -4,15 +4,25 @@ from twikit import Client
 
 app = Flask(__name__)
 
-# Login credentials (change if needed)
+# --- Twitter (X) credentials ---
 USERNAME = 'youdontknow1028'
 EMAIL = 'sensiblegamingyt@gmail.com'
 PASSWORD = 'Aaryan@2007'
 
-# Initialize Twikit client
+# --- Initialize twikit client ---
 client = Client('en-US')
 
-# Login async function
+# --- Safe event loop runner ---
+def run_async(coro):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        result = loop.run_until_complete(coro)
+        return result
+    finally:
+        loop.close()
+
+# --- Login function ---
 async def login():
     await client.login(
         auth_info_1=USERNAME,
@@ -21,21 +31,22 @@ async def login():
         cookies_file='cookies.json'
     )
 
-# --- Route: Get Top 10 Trends ---
+# --- Route: GET /trends ---
 @app.route('/trends', methods=['GET'])
 def get_trends():
-    async def fetch():
+    async def fetch_trends():
         await login()
         trends = await client.get_trends('trending')
-        return [{"trend": t.name} for t in trends[:10]]  # ✅ Proper JSON structure
+        # Return each trend as an object for n8n compatibility
+        return [{"trend": t.name} for t in trends[:10]]
 
     try:
-        results = asyncio.run(fetch())
+        results = run_async(fetch_trends())
         return jsonify(results), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# --- Route: Post a Tweet ---
+# --- Route: POST /tweet ---
 @app.route('/tweet', methods=['POST'])
 def post_tweet():
     data = request.get_json()
@@ -44,16 +55,16 @@ def post_tweet():
     if not text:
         return jsonify({"error": "Missing tweet text"}), 400
 
-    async def tweet():
+    async def send_tweet():
         await login()
         await client.create_tweet(text=text)
 
     try:
-        asyncio.run(tweet())
-        return jsonify({"success": True, "tweet": text}), 200
+        run_async(send_tweet())
+        return jsonify({"success": True, "text": text}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# --- Entry Point ---
+# --- Start server locally if needed ---
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(debug=True)
