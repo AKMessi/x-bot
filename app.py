@@ -1,28 +1,20 @@
 from flask import Flask, request, jsonify
 import asyncio
+import nest_asyncio
 from twikit import Client
+
+# Patch existing event loop to allow nested use
+nest_asyncio.apply()
 
 app = Flask(__name__)
 
-# --- Twitter (X) credentials ---
+# Twitter (X) credentials
 USERNAME = 'youdontknow1028'
 EMAIL = 'sensiblegamingyt@gmail.com'
 PASSWORD = 'Aaryan@2007'
 
-# --- Initialize twikit client ---
 client = Client('en-US')
 
-# --- Safe event loop runner ---
-def run_async(coro):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        result = loop.run_until_complete(coro)
-        return result
-    finally:
-        loop.close()
-
-# --- Login function ---
 async def login():
     await client.login(
         auth_info_1=USERNAME,
@@ -31,22 +23,20 @@ async def login():
         cookies_file='cookies.json'
     )
 
-# --- Route: GET /trends ---
 @app.route('/trends', methods=['GET'])
 def get_trends():
     async def fetch_trends():
         await login()
         trends = await client.get_trends('trending')
-        # Return each trend as an object for n8n compatibility
         return [{"trend": t.name} for t in trends[:10]]
 
     try:
-        results = run_async(fetch_trends())
-        return jsonify(results), 200
+        loop = asyncio.get_event_loop()
+        results = loop.run_until_complete(fetch_trends())
+        return jsonify(results)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# --- Route: POST /tweet ---
 @app.route('/tweet', methods=['POST'])
 def post_tweet():
     data = request.get_json()
@@ -60,11 +50,11 @@ def post_tweet():
         await client.create_tweet(text=text)
 
     try:
-        run_async(send_tweet())
-        return jsonify({"success": True, "text": text}), 200
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(send_tweet())
+        return jsonify({"success": True, "text": text})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# --- Start server locally if needed ---
 if __name__ == '__main__':
     app.run(debug=True)
