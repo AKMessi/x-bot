@@ -1,6 +1,10 @@
 from flask import Flask, request, jsonify
 import asyncio
+import nest_asyncio
 from twikit import Client
+
+# Fix event loop issue in hosted environments
+nest_asyncio.apply()
 
 app = Flask(__name__)
 
@@ -25,8 +29,11 @@ def get_trends():
         trends = await client.get_trends('trending')
         return [t.name for t in trends[:10]]
     
-    results = asyncio.run(fetch())
-    return jsonify(results)
+    try:
+        results = asyncio.run(fetch())
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/tweet', methods=['POST'])
 def post_tweet():
