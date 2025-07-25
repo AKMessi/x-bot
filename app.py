@@ -1,57 +1,56 @@
 from flask import Flask, request, jsonify
 import asyncio
-import nest_asyncio
 from twikit import Client
+import nest_asyncio
+import os
 
-# Patch existing event loop to allow nested use
 nest_asyncio.apply()
-
 app = Flask(__name__)
 
-# Twitter (X) credentials
 USERNAME = 'youdontknow1028'
 EMAIL = 'sensiblegamingyt@gmail.com'
 PASSWORD = 'Aaryan@2007'
 
 client = Client('en-US')
+COOKIES_PATH = 'cookies.json'
 
-async def login():
+async def login_with_credentials():
     await client.login(
         auth_info_1=USERNAME,
         auth_info_2=EMAIL,
         password=PASSWORD,
-        cookies_file='cookies.json'
+        cookies_file=COOKIES_PATH
     )
+
+def ensure_logged_in():
+    try:
+        if os.path.exists(COOKIES_PATH):
+            client.load_cookies(COOKIES_PATH)
+        if not client.is_logged_in:
+            asyncio.run(login_with_credentials())
+    except Exception as e:
+        raise Exception(f"Login failed: {str(e)}")
 
 @app.route('/trends', methods=['GET'])
 def get_trends():
-    async def fetch_trends():
-        await login()
-        trends = await client.get_trends('trending')
-        return [{"trend": t.name} for t in trends[:10]]
-
     try:
-        loop = asyncio.get_event_loop()
-        results = loop.run_until_complete(fetch_trends())
-        return jsonify(results)
+        ensure_logged_in()
+        trends = asyncio.run(client.get_trends('trending'))
+        result = [{"name": t.name} for t in trends[:10]]
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/tweet', methods=['POST'])
 def post_tweet():
-    data = request.get_json()
-    text = data.get("text")
-
-    if not text:
-        return jsonify({"error": "Missing tweet text"}), 400
-
-    async def send_tweet():
-        await login()
-        await client.create_tweet(text=text)
-
     try:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(send_tweet())
+        data = request.get_json()
+        text = data.get("text")
+        if not text:
+            return jsonify({"error": "Missing tweet text"}), 400
+
+        ensure_logged_in()
+        asyncio.run(client.create_tweet(text=text))
         return jsonify({"success": True, "text": text})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
